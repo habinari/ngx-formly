@@ -6,6 +6,7 @@ import {
   ɵreverseDeepMerge as reverseDeepMerge,
   ɵgetFieldInitialValue as getFieldInitialValue,
 } from '@ngx-formly/core';
+import * as Ajv from 'ajv';
 
 export interface FormlyJsonschemaOptions {
   /**
@@ -172,6 +173,15 @@ export class FormlyJsonschema {
             options,
           ));
         }
+
+        if (schema.if && schema.then) {
+          field.fieldGroup.push(this.resolveConditional(
+            <JSONSchema7> schema.if,
+            <JSONSchema7> schema.then,
+            <JSONSchema7> schema.else,
+            options,
+          ));
+        }
         break;
       }
       case 'array': {
@@ -300,6 +310,44 @@ export class FormlyJsonschema {
 
       return reverseDeepMerge(base, schema);
     }, baseSchema);
+  }
+
+  private FieldModelify(field: FormlyFieldConfig) {
+    if (field.type === 'object') {
+      let model = {};
+      if (field.fieldGroup && field.fieldGroup.length > 0) {
+        field.fieldGroup.forEach(subField => {
+          if (subField.type !== 'multischema') {
+            model[subField.key] = this.FieldModelify(subField);
+          }
+        });
+      }
+    } else {
+      return field.formControl.value;
+    }
+  }
+
+  private resolveConditional(ifSchema: JSONSchema7, thenSchema: JSONSchema7, elseSchema: JSONSchema7, options: IOptions): FormlyFieldConfig {
+    const checkIf = (m, fs, f) => {
+      const ajv = new Ajv();
+      return !ajv.validate(ifSchema, this.FieldModelify(f.parent.parent));
+    };
+    const multischema = {
+      type: 'multischema',
+      fieldGroup: [
+        {
+          ...this._toFieldConfig(thenSchema, { ...options, autoClear: true }),
+          hideExpression: checkIf,
+        },
+      ],
+    };
+    if (elseSchema) {
+      multischema.fieldGroup.push({
+        ...this._toFieldConfig(elseSchema, { ...options, autoClear: true }),
+        hideExpression: (m, fs, f) => !checkIf(m, fs, f),
+      });
+    }
+    return multischema;
   }
 
   private resolveMultiSchema(

@@ -1,0 +1,38 @@
+{
+  "schema": {
+    "type": "object",
+    "properties": {
+      "age": {
+        "type": "integer",
+        "title": "Age"
+      }
+    },
+    "if": {
+      "properties": {
+        "age": {
+          "const": 18
+        }
+      }
+    },
+    "then": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "title": "Your name",
+          "default": "Walker Jr."
+        }
+      }
+    },
+    "else": {
+      "properties": {
+        "parentsName": {
+          "type": "string",
+          "title": "Parent's name",
+          "default": "Allen"
+        }
+      }
+    }
+  },
+  "model": {
+  }
+}
