@@ -2,7 +2,6 @@ import { FormlyFieldConfig } from './core';
 import { isObservable } from 'rxjs';
 import { AbstractControl } from '@angular/forms';
 import { FormlyFieldConfigCache } from './components/formly.field.config';
-import { JSONSchema7 } from 'json-schema';
 
 export function getFieldId(formId: string, field: FormlyFieldConfig, index: string|number) {
   if (field.id) return field.id;

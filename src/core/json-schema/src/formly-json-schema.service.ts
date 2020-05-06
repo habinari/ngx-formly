@@ -116,7 +116,6 @@ export class FormlyJsonschema {
       }
       case 'object': {
         field.fieldGroup = [];
-
         const [propDeps, schemaDeps] = this.resolveDependencies(schema);
         Object.keys(schema.properties || {}).forEach(key => {
           const f = this._toFieldConfig(<JSONSchema7> schema.properties[key], options);
@@ -181,6 +180,15 @@ export class FormlyJsonschema {
             <JSONSchema7> schema.else,
             options,
           ));
+        }
+
+        if (schema.allOf) {
+          schema.allOf.forEach((conditional: any) => field.fieldGroup.push(this.resolveConditional(
+            conditional.if,
+            conditional.then,
+            conditional.else,
+            options,
+          )));
         }
         break;
       }
@@ -270,7 +278,7 @@ export class FormlyJsonschema {
       schema = this.resolveDefinition(schema, options);
     }
 
-    if (schema.allOf) {
+    if (schema.allOf && !schema.allOf.every(subSchema => subSchema['if'])) {
       schema = this.resolveAllOf(schema, options);
     }
 
@@ -307,21 +315,21 @@ export class FormlyJsonschema {
             base[prop] = base[prop] > schema[prop] ? base[prop] : schema[prop];
           }
         });
-
       return reverseDeepMerge(base, schema);
     }, baseSchema);
   }
 
-  private FieldModelify(field: FormlyFieldConfig) {
+  private fieldModelify(field: FormlyFieldConfig) {
     if (field.type === 'object') {
       let model = {};
       if (field.fieldGroup && field.fieldGroup.length > 0) {
         field.fieldGroup.forEach(subField => {
           if (subField.type !== 'multischema') {
-            model[subField.key] = this.FieldModelify(subField);
+            model[subField.key] = this.fieldModelify(subField);
           }
         });
       }
+      return model;
     } else {
       return field.formControl.value;
     }
@@ -330,7 +338,7 @@ export class FormlyJsonschema {
   private resolveConditional(ifSchema: JSONSchema7, thenSchema: JSONSchema7, elseSchema: JSONSchema7, options: IOptions): FormlyFieldConfig {
     const checkIf = (m, fs, f) => {
       const ajv = new Ajv();
-      return !ajv.validate(ifSchema, this.FieldModelify(f.parent.parent));
+      return !ajv.validate(ifSchema, this.fieldModelify(f.parent.parent));
     };
     const multischema = {
       type: 'multischema',

@@ -1,0 +1,51 @@
+{
+  "schema": {
+    "type": "object",
+    "properties": {
+      "age": {
+        "type": "integer",
+        "title": "Age"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "age": {
+              "const": 18
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "name": {
+              "type": "string",
+              "title": "Your name",
+              "default": "Walker Jr."
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "age": {
+              "const": 20
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "name2": {
+              "type": "string",
+              "title": "patata",
+              "default": "Walker Jr."
+            }
+          }
+        }
+      }
+    ]
+  },
+  "model": {
+  }
+}

@@ -30,6 +30,8 @@ export class AppComponent {
     'oneOf',
     'select_alternatives',
     'if',
+    'allOf_if',
+    'anyOf_if',
   ];
 
   constructor(
