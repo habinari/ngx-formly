@@ -184,9 +184,9 @@ export class FormlyJsonschema {
 
         if (schema.allOf) {
           schema.allOf.forEach((conditional: any) => field.fieldGroup.push(this.resolveConditional(
-            conditional.if,
-            conditional.then,
-            conditional.else,
+            <JSONSchema7> conditional.if,
+            <JSONSchema7> conditional.then,
+            <JSONSchema7> conditional.else,
             options,
           )));
         }
@@ -278,7 +278,7 @@ export class FormlyJsonschema {
       schema = this.resolveDefinition(schema, options);
     }
 
-    if (schema.allOf && !schema.allOf.every(subSchema => subSchema['if'])) {
+    if (schema.allOf) {
       schema = this.resolveAllOf(schema, options);
     }
 
@@ -290,33 +290,39 @@ export class FormlyJsonschema {
       throw Error(`allOf array can not be empty ${allOf}.`);
     }
 
-    return allOf.reduce((base: JSONSchema7, schema: JSONSchema7) => {
-      schema = this.resolveSchema(schema, options);
-      if (base.required && schema.required) {
-        base.required = [...base.required, ...schema.required];
-      }
 
-      if (schema.uniqueItems) {
-        base.uniqueItems = schema.uniqueItems;
-      }
-
-      // resolve to min value
-      ['maxLength', 'maximum', 'exclusiveMaximum', 'maxItems', 'maxProperties']
-        .forEach(prop => {
-          if (!isEmpty(base[prop]) && !isEmpty(schema[prop])) {
-            base[prop] = base[prop] < schema[prop] ? base[prop] : schema[prop];
+    return Object.assign(
+      allOf
+        .filter((schema: JSONSchema7) => !schema.if)
+        .reduce((base: JSONSchema7, schema: JSONSchema7) => {
+          schema = this.resolveSchema(schema, options);
+          if (base.required && schema.required) {
+            base.required = [...base.required, ...schema.required];
           }
-        });
 
-      // resolve to max value
-      ['minLength', 'minimum', 'exclusiveMinimum', 'minItems', 'minProperties']
-        .forEach(prop => {
-          if (!isEmpty(base[prop]) && !isEmpty(schema[prop])) {
-            base[prop] = base[prop] > schema[prop] ? base[prop] : schema[prop];
+          if (schema.uniqueItems) {
+            base.uniqueItems = schema.uniqueItems;
           }
-        });
-      return reverseDeepMerge(base, schema);
-    }, baseSchema);
+
+          // resolve to min value
+          ['maxLength', 'maximum', 'exclusiveMaximum', 'maxItems', 'maxProperties']
+            .forEach(prop => {
+              if (!isEmpty(base[prop]) && !isEmpty(schema[prop])) {
+                base[prop] = base[prop] < schema[prop] ? base[prop] : schema[prop];
+              }
+            });
+
+          // resolve to max value
+          ['minLength', 'minimum', 'exclusiveMinimum', 'minItems', 'minProperties']
+            .forEach(prop => {
+              if (!isEmpty(base[prop]) && !isEmpty(schema[prop])) {
+                base[prop] = base[prop] > schema[prop] ? base[prop] : schema[prop];
+              }
+            });
+          return reverseDeepMerge(base, schema);
+        }, baseSchema),
+      { allOf: allOf.filter((schema: JSONSchema7) => !!schema.if) },
+    );
   }
 
   private fieldModelify(field: FormlyFieldConfig) {
@@ -336,23 +342,22 @@ export class FormlyJsonschema {
   }
 
   private resolveConditional(ifSchema: JSONSchema7, thenSchema: JSONSchema7, elseSchema: JSONSchema7, options: IOptions): FormlyFieldConfig {
-    const checkIf = (m, fs, f) => {
-      const ajv = new Ajv();
-      return !ajv.validate(ifSchema, this.fieldModelify(f.parent.parent));
-    };
+    const ajv = new Ajv();
+    const validate = ajv.compile(ifSchema);
+    const hideExpression = (m, fs, f) => !validate(this.fieldModelify(f.parent.parent));
     const multischema = {
       type: 'multischema',
       fieldGroup: [
         {
           ...this._toFieldConfig(thenSchema, { ...options, autoClear: true }),
-          hideExpression: checkIf,
+          hideExpression,
         },
       ],
     };
     if (elseSchema) {
       multischema.fieldGroup.push({
         ...this._toFieldConfig(elseSchema, { ...options, autoClear: true }),
-        hideExpression: (m, fs, f) => !checkIf(m, fs, f),
+        hideExpression: (m, fs, f) => !hideExpression(m, fs, f),
       });
     }
     return multischema;
